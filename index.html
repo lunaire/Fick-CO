@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Fick CO">
+  <meta name="description" content="Cardiac Output calculator using Fick's formula">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>Fick Cardiac Output</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg: #ffffff;
+      --bg-secondary: #f5f5f4;
+      --bg-info: #e6f1fb;
+      --bg-success: #eaf3de;
+      --bg-warning: #faeeda;
+      --bg-danger: #fcebeb;
+      --text: #1a1a1a;
+      --text-secondary: #6b6b6b;
+      --text-tertiary: #9b9b9b;
+      --text-info: #185fa5;
+      --text-success: #3b6d11;
+      --text-warning: #854f0b;
+      --text-danger: #a32d2d;
+      --border: rgba(0,0,0,0.12);
+      --border-med: rgba(0,0,0,0.2);
+      --radius: 10px;
+      --radius-lg: 14px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1e;
+        --bg-secondary: #2c2c2e;
+        --bg-info: #0c2e4a;
+        --bg-success: #1a3008;
+        --bg-warning: #3a2004;
+        --bg-danger: #3a1010;
+        --text: #f2f2f7;
+        --text-secondary: #aeaeb2;
+        --text-tertiary: #636366;
+        --text-info: #64a8e8;
+        --text-success: #8ecf4a;
+        --text-warning: #e8a04a;
+        --text-danger: #e87070;
+        --border: rgba(255,255,255,0.1);
+        --border-med: rgba(255,255,255,0.18);
+      }
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    .app { max-width: 480px; margin: 0 auto; padding-bottom: 2rem; }
+
+    .header { padding: 1.25rem 1rem 0.75rem; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .header-icon { width: 36px; height: 36px; background: var(--text); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .header-icon svg { color: var(--bg); }
+    .header h1 { font-size: 17px; font-weight: 600; color: var(--text); }
+    .header p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+    .steps { display: flex; gap: 6px; padding: 0.75rem 1rem 0; }
+    .step { flex: 1; height: 3px; border-radius: 2px; background: var(--border); transition: background 0.3s; }
+    .step.active { background: var(--text); }
+    .step.done { background: var(--text-secondary); }
+
+    .section { padding: 1rem; border-bottom: 0.5px solid var(--border); }
+    .section-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 12px; }
+
+    .camera-zone { border: 1.5px dashed var(--border-med); border-radius: var(--radius-lg); padding: 2rem 1rem; text-align: center; cursor: pointer; transition: background 0.15s; position: relative; }
+    .camera-zone:active { background: var(--bg-secondary); }
+    .camera-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .cam-icon { width: 36px; height: 36px; margin: 0 auto 10px; color: var(--text-secondary); }
+    .camera-zone .cz-title { font-size: 15px; font-weight: 500; color: var(--text); }
+    .camera-zone .cz-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+
+    .preview-img { width: 100%; border-radius: var(--radius); border: 0.5px solid var(--border); max-height: 200px; object-fit: cover; display: block; margin-bottom: 12px; }
+
+    .btn { display: block; width: 100%; padding: 13px; font-size: 15px; font-weight: 600; border-radius: var(--radius); border: 1px solid var(--border-med); background: transparent; color: var(--text); cursor: pointer; transition: background 0.1s, transform 0.08s; }
+    .btn:active { transform: scale(0.98); background: var(--bg-secondary); }
+    .btn.primary { background: var(--text); color: var(--bg); border-color: transparent; }
+    .btn.primary:active { opacity: 0.85; }
+    .btn.sm { padding: 9px 14px; font-size: 13px; width: auto; display: inline-block; font-weight: 500; }
+    .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+
+    .field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .field-row label { font-size: 14px; color: var(--text-secondary); flex: 1; line-height: 1.3; }
+    .field-row input { width: 90px; padding: 9px 12px; font-size: 15px; border: 1px solid var(--border-med); border-radius: var(--radius); background: var(--bg-secondary); color: var(--text); text-align: right; font-family: inherit; }
+    .field-row input:focus { outline: none; border-color: var(--text); }
+    .field-row .unit { font-size: 12px; color: var(--text-tertiary); min-width: 44px; }
+
+    .formula-box { background: var(--bg-secondary); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: var(--text-secondary); line-height: 1.9; font-family: 'Menlo', 'Courier New', monospace; white-space: pre-wrap; }
+
+    .ai-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-info); background: var(--bg-info); border-radius: var(--radius); padding: 5px 10px; margin-bottom: 12px; }
+
+    .note { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; line-height: 1.5; }
+    .note.success { color: var(--text-success); }
+
+    .status { font-size: 13px; color: var(--text-secondary); text-align: center; padding: 8px 0; }
+    .status.loading { color: var(--text-info); }
+    .status.error { color: var(--text-danger); }
+    .status.success { color: var(--text-success); }
+
+    .result-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .metric { background: var(--bg-secondary); border-radius: var(--radius); padding: 14px; }
+    .metric.wide { grid-column: span 2; }
+    .metric-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; }
+    .metric-val { font-size: 28px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
+    .metric-unit { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; }
+    .interp-tag { display: inline-block; font-size: 12px; border-radius: 6px; padding: 4px 10px; margin-top: 8px; font-weight: 500; }
+
+    .toggle-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 10px 12px; background: var(--bg-secondary); border-radius: var(--radius); }
+    .toggle-label { font-size: 14px; color: var(--text); flex: 1; }
+    .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; inset: 0; background: var(--border-med); border-radius: 24px; cursor: pointer; transition: background 0.2s; }
+    .slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    .toggle input:checked + .slider { background: #34c759; }
+    .toggle input:checked + .slider:before { transform: translateX(20px); }
+
+    .install-banner { margin: 1rem; padding: 14px; background: var(--bg-info); border-radius: var(--radius-lg); display: none; }
+    .install-banner p { font-size: 13px; color: var(--text-info); line-height: 1.5; }
+    .install-banner strong { font-weight: 600; }
+
+    .disclaimer { margin: 1rem; padding: 12px 14px; background: var(--bg-warning); border-radius: var(--radius); }
+    .disclaimer p { font-size: 12px; color: var(--text-warning); line-height: 1.5; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Fick Cardiac Output</h1>
+      <p>MDCalc formula · Hüfner 1.34 mL/g</p>
+    </div>
+  </div>
+
+  <div id="installBanner" class="install-banner">
+    <p>📲 <strong>Add to home screen:</strong> Tap the share button in your browser, then "Add to Home Screen" to use this like a native app.</p>
+  </div>
+
+  <div class="steps">
+    <div class="step active" id="s1"></div>
+    <div class="step" id="s2"></div>
+    <div class="step" id="s3"></div>
+  </div>
+
+  <!-- Step 1: Camera -->
+  <div id="panelCapture" class="section">
+    <div class="section-label">Step 1 — Epic EMR photo</div>
+    <div class="camera-zone" id="cameraZone">
+      <input type="file" id="fileInput" accept="image/*" capture="environment">
+      <svg class="cam-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      <div class="cz-title">Tap to open camera or upload</div>
+      <div class="cz-sub">Hemodynamic flowsheet, ABG, or cath report</div>
+    </div>
+    <div id="imgPreviewWrap" style="display:none; margin-top:12px;">
+      <img id="imgPreview" class="preview-img">
+      <div class="btn-row">
+        <button class="btn primary sm" id="btnExtract">Extract with AI</button>
+        <button class="btn sm" id="btnRetake">Retake</button>
+      </div>
+    </div>
+    <div id="captureStatus" class="status" style="display:none;"></div>
+    <div style="margin-top:12px;">
+      <button class="btn sm" onclick="showManual()">Skip — enter manually</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Values -->
+  <div id="panelValues" class="section" style="display:none;">
+    <div class="section-label">Step 2 — Patient values</div>
+    <div id="aiBadge" class="ai-badge" style="display:none;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      AI-extracted — verify before calculating
+    </div>
+    <div id="extractedNote" class="note success" style="display:none;"></div>
+
+    <div class="formula-box" id="formulaBox">CO = VO₂ / (13.4 × Hgb × (SaO₂ − SvO₂))
+VO₂ = 125 mL/min/m² × BSA  (age &lt;70)</div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">Patient age ≥ 70 years</span>
+      <label class="toggle"><input type="checkbox" id="over70" onchange="updateFormula()"><span class="slider"></span></label>
+    </div>
+
+    <div class="field-row">
+      <label>Arterial O₂ sat (SaO₂)</label>
+      <input type="number" id="sao2" placeholder="98" min="0" max="100" step="0.1" inputmode="decimal">
+      <span class="unit">%</span>
+    </div>
+    <div class="field-row">
+      <label>Venous O₂ sat (SvO₂) — PA</label>
+      <input type="number" id="svo2" placeholder="65" min="0" max="100" step="0.1" inputmode="decimal">
+      <span class="unit">%</span>
+    </div>
+    <div class="field-row">
+      <label>Hemoglobin (Hgb)</label>
+      <input type="number" id="hgb" placeholder="14" min="0" max="25" step="0.1" inputmode="decimal">
+      <span class="unit">g/dL</span>
+    </div>
+    <div class="field-row">
+      <label>Body surface area (BSA)</label>
+      <input type="number" id="bsa" placeholder="1.73" min="0.5" max="3.0" step="0.01" inputmode="decimal">
+      <span class="unit">m²</span>
+    </div>
+    <div class="note">SvO₂ should be sampled from the pulmonary artery (true mixed venous).</div>
+    <button class="btn primary" onclick="calculate()">Calculate cardiac output</button>
+  </div>
+
+  <!-- Step 3: Results -->
+  <div id="panelResult" class="section" style="display:none;">
+    <div class="section-label">Step 3 — Results</div>
+    <div class="result-grid">
+      <div class="metric wide">
+        <div class="metric-label">Cardiac output (CO)</div>
+        <div class="metric-val" id="coVal">—</div>
+        <div class="metric-unit">L/min &nbsp;·&nbsp; normal 4.0–8.0</div>
+        <div id="coTag"></div>
+      </div>
+      <div class="metric wide">
+        <div class="metric-label">Cardiac index (CI)</div>
+        <div class="metric-val" id="ciVal">—</div>
+        <div class="metric-unit">L/min/m² &nbsp;·&nbsp; normal 2.2–4.0</div>
+        <div id="ciTag"></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Assumed VO₂</div>
+        <div class="metric-val" id="vo2Val">—</div>
+        <div class="metric-unit">mL/min</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">A-vO₂ difference</div>
+        <div class="metric-val" id="avdo2Val">—</div>
+        <div class="metric-unit">mL/dL</div>
+      </div>
+    </div>
+
+    <div class="formula-box" id="detailCalc"></div>
+
+    <div class="btn-row">
+      <button class="btn sm" onclick="resetAll()">New calculation</button>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <p>⚠️ For clinical decision support only. Always verify results independently. Not a substitute for clinical judgment.</p>
+  </div>
+
+</div>
+
+<script>
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  // Show install banner on mobile browsers that aren't standalone
+  if (!window.matchMedia('(display-mode: standalone)').matches && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+    document.getElementById('installBanner').style.display = 'block';
+  }
+
+  const HUFNER = 1.34;
+  let imgDataUrl = null;
+  const $ = id => document.getElementById(id);
+
+  function setStep(n) {
+    [1,2,3].forEach(i => {
+      $('s'+i).className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+    });
+  }
+
+  function updateFormula() {
+    const aged = $('over70').checked;
+    const k = aged ? 110 : 125;
+    $('formulaBox').textContent = `CO = VO₂ / (${HUFNER * 10} × Hgb × (SaO₂ − SvO₂))\nVO₂ = ${k} mL/min/m² × BSA  (${aged ? 'age ≥70' : 'age <70'})`;
+  }
+
+  $('fileInput').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      imgDataUrl = e.target.result;
+      $('imgPreview').src = imgDataUrl;
+      $('imgPreviewWrap').style.display = 'block';
+      $('cameraZone').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('btnRetake').onclick = () => {
+    imgDataUrl = null;
+    $('imgPreviewWrap').style.display = 'none';
+    $('cameraZone').style.display = 'block';
+    $('fileInput').value = '';
+    $('captureStatus').style.display = 'none';
+  };
+
+  $('btnExtract').onclick = async () => {
+    if (!imgDataUrl) return;
+    const status = $('captureStatus');
+    status.textContent = 'Analyzing Epic EMR image with AI...';
+    status.className = 'status loading';
+    status.style.display = 'block';
+    $('btnExtract').disabled = true;
+
+    try {
+      const base64 = imgDataUrl.split(',')[1];
+      const mediaType = imgDataUrl.split(';')[0].split(':')[1];
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+              { type: "text", text: `Extract hemodynamic values from this Epic EMR image. Return ONLY valid JSON, no markdown.
+
+{
+  "sao2": <arterial O2 saturation 0-100, or null>,
+  "svo2": <mixed venous/PA O2 saturation 0-100, or null>,
+  "hgb": <hemoglobin g/dL, or null>,
+  "bsa": <body surface area m2, or null>,
+  "age_over_70": <true/false/null>,
+  "notes": "<brief summary max 80 chars>"
+}
+
+Look for: SaO2, SpO2, SvO2, MvO2, PA sat, Hgb, Hemoglobin, BSA, age. Convert % to numbers.` }
+            ]
+          }]
+        })
+      });
+      const data = await res.json();
+      const text = data.content.map(b => b.text || '').join('');
+      const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+
+      let found = [];
+      if (parsed.sao2 != null) { $('sao2').value = parsed.sao2; found.push('SaO₂'); }
+      if (parsed.svo2 != null) { $('svo2').value = parsed.svo2; found.push('SvO₂'); }
+      if (parsed.hgb != null)  { $('hgb').value  = parsed.hgb;  found.push('Hgb'); }
+      if (parsed.bsa != null)  { $('bsa').value  = parsed.bsa;  found.push('BSA'); }
+      if (parsed.age_over_70 === true) { $('over70').checked = true; updateFormula(); }
+
+      showManual();
+      $('aiBadge').style.display = 'flex';
+      if (found.length > 0) {
+        $('extractedNote').textContent = 'Found: ' + found.join(', ') + '. Please verify.';
+        $('extractedNote').style.display = 'block';
+        status.textContent = 'Extraction complete.';
+        status.className = 'status success';
+      } else {
+        $('extractedNote').style.display = 'none';
+        status.textContent = (parsed.notes || 'No values detected') + '. Enter manually.';
+        status.className = 'status';
+      }
+    } catch(e) {
+      status.textContent = 'Extraction failed — please enter values manually.';
+      status.className = 'status error';
+      showManual();
+    }
+    $('btnExtract').disabled = false;
+  };
+
+  function showManual() {
+    $('panelValues').style.display = 'block';
+    setStep(2);
+    setTimeout(() => $('panelValues').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function tag(label, type) {
+    const colors = { normal: 'var(--text-success)', low: 'var(--text-warning)', critical: 'var(--text-danger)', high: 'var(--text-info)' };
+    const bgs    = { normal: 'var(--bg-success)', low: 'var(--bg-warning)', critical: 'var(--bg-danger)', high: 'var(--bg-info)' };
+    return `<span class="interp-tag" style="background:${bgs[type]};color:${colors[type]}">${label}</span>`;
+  }
+
+  function calculate() {
+    const sao2 = parseFloat($('sao2').value) / 100;
+    const svo2 = parseFloat($('svo2').value) / 100;
+    const hgb  = parseFloat($('hgb').value);
+    const bsa  = parseFloat($('bsa').value);
+    const aged = $('over70').checked;
+
+    if ([sao2, svo2, hgb, bsa].some(isNaN)) {
+      alert('SaO₂, SvO₂, Hgb, and BSA are required.');
+      return;
+    }
+
+    const vo2Constant = aged ? 110 : 125;
+    const vo2   = vo2Constant * bsa;
+    const avdo2 = HUFNER * 10 * hgb * (sao2 - svo2);
+    const co    = vo2 / avdo2;
+    const ci    = co / bsa;
+
+    $('coVal').textContent    = co.toFixed(2);
+    $('ciVal').textContent    = ci.toFixed(2);
+    $('vo2Val').textContent   = Math.round(vo2);
+    $('avdo2Val').textContent = avdo2.toFixed(2);
+
+    const coType  = co < 2 ? 'critical' : co < 4 ? 'low' : co <= 8 ? 'normal' : 'high';
+    const coLabel = co < 2 ? 'Critically low' : co < 4 ? 'Low' : co <= 8 ? 'Normal' : 'Elevated';
+    $('coTag').innerHTML = tag(coLabel, coType);
+
+    const ciType  = ci < 1.8 ? 'critical' : ci < 2.2 ? 'low' : ci <= 4.0 ? 'normal' : 'high';
+    const ciLabel = ci < 1.8 ? 'Critically low' : ci < 2.2 ? 'Low' : ci <= 4.0 ? 'Normal' : 'Elevated';
+    $('ciTag').innerHTML = tag(ciLabel, ciType);
+
+    $('detailCalc').textContent =
+      `VO₂ = ${vo2Constant} × ${bsa} BSA = ${Math.round(vo2)} mL/min\n` +
+      `A-vO₂ = 1.34 × 10 × ${hgb} × (${(sao2*100).toFixed(1)}% − ${(svo2*100).toFixed(1)}%)\n` +
+      `      = ${avdo2.toFixed(2)} mL/dL\n` +
+      `CO = ${Math.round(vo2)} / ${avdo2.toFixed(2)} = ${co.toFixed(2)} L/min\n` +
+      `CI = ${co.toFixed(2)} / ${bsa} = ${ci.toFixed(2)} L/min/m²`;
+
+    $('panelResult').style.display = 'block';
+    setStep(3);
+    setTimeout(() => $('panelResult').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  function resetAll() {
+    ['sao2','svo2','hgb','bsa'].forEach(id => $(id).value = '');
+    $('over70').checked = false;
+    updateFormula();
+    ['panelValues','panelResult'].forEach(id => $(id).style.display = 'none');
+    $('imgPreviewWrap').style.display = 'none';
+    $('cameraZone').style.display = 'block';
+    $('fileInput').value = '';
+    $('aiBadge').style.display = 'none';
+    $('extractedNote').style.display = 'none';
+    $('captureStatus').style.display = 'none';
+    imgDataUrl = null;
+    setStep(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
