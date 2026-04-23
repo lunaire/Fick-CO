@@ -7,10 +7,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Fick CO">
-  <meta name="description" content="Cardiac Output calculator using Fick's formula">
+  <meta name="description" content="Cardiac Output calculator using Fick's formula with on-device OCR">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <title>Fick Cardiac Output</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -54,14 +55,13 @@
       }
     }
 
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-
+    html, body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .app { max-width: 480px; margin: 0 auto; padding-bottom: 2rem; }
 
     .header { padding: 1.25rem 1rem 0.75rem; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 10px; }
     .header-icon { width: 36px; height: 36px; background: var(--text); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .header-icon svg { color: var(--bg); }
-    .header h1 { font-size: 17px; font-weight: 600; color: var(--text); }
+    .header h1 { font-size: 17px; font-weight: 600; }
     .header p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
 
     .steps { display: flex; gap: 6px; padding: 0.75rem 1rem 0; }
@@ -72,17 +72,17 @@
     .section { padding: 1rem; border-bottom: 0.5px solid var(--border); }
     .section-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 12px; }
 
-    .camera-zone { border: 1.5px dashed var(--border-med); border-radius: var(--radius-lg); padding: 2rem 1rem; text-align: center; cursor: pointer; transition: background 0.15s; position: relative; }
+    .camera-zone { border: 1.5px dashed var(--border-med); border-radius: var(--radius-lg); padding: 2rem 1rem; text-align: center; cursor: pointer; position: relative; }
     .camera-zone:active { background: var(--bg-secondary); }
     .camera-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
     .cam-icon { width: 36px; height: 36px; margin: 0 auto 10px; color: var(--text-secondary); }
-    .camera-zone .cz-title { font-size: 15px; font-weight: 500; color: var(--text); }
-    .camera-zone .cz-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+    .cz-title { font-size: 15px; font-weight: 500; }
+    .cz-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
 
     .preview-img { width: 100%; border-radius: var(--radius); border: 0.5px solid var(--border); max-height: 200px; object-fit: cover; display: block; margin-bottom: 12px; }
 
     .btn { display: block; width: 100%; padding: 13px; font-size: 15px; font-weight: 600; border-radius: var(--radius); border: 1px solid var(--border-med); background: transparent; color: var(--text); cursor: pointer; transition: background 0.1s, transform 0.08s; }
-    .btn:active { transform: scale(0.98); background: var(--bg-secondary); }
+    .btn:active { transform: scale(0.98); }
     .btn.primary { background: var(--text); color: var(--bg); border-color: transparent; }
     .btn.primary:active { opacity: 0.85; }
     .btn.sm { padding: 9px 14px; font-size: 13px; width: auto; display: inline-block; font-weight: 500; }
@@ -96,7 +96,7 @@
 
     .formula-box { background: var(--bg-secondary); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: var(--text-secondary); line-height: 1.9; font-family: 'Menlo', 'Courier New', monospace; white-space: pre-wrap; }
 
-    .ai-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-info); background: var(--bg-info); border-radius: var(--radius); padding: 5px 10px; margin-bottom: 12px; }
+    .ocr-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-info); background: var(--bg-info); border-radius: var(--radius); padding: 5px 10px; margin-bottom: 12px; }
 
     .note { font-size: 12px; color: var(--text-tertiary); margin-bottom: 12px; line-height: 1.5; }
     .note.success { color: var(--text-success); }
@@ -106,26 +106,30 @@
     .status.error { color: var(--text-danger); }
     .status.success { color: var(--text-success); }
 
+    /* OCR progress bar */
+    .progress-wrap { background: var(--border); border-radius: 4px; height: 6px; margin: 6px 0 4px; overflow: hidden; display: none; }
+    .progress-bar { height: 100%; background: var(--text-info); border-radius: 4px; transition: width 0.3s; width: 0%; }
+
+    /* Raw OCR text viewer */
+    .ocr-raw { background: var(--bg-secondary); border-radius: var(--radius); padding: 10px 12px; font-size: 11px; font-family: monospace; color: var(--text-tertiary); max-height: 80px; overflow-y: auto; margin-bottom: 10px; white-space: pre-wrap; word-break: break-all; display: none; }
+    .ocr-toggle { font-size: 11px; color: var(--text-info); cursor: pointer; margin-bottom: 10px; display: none; }
+
     .result-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
     .metric { background: var(--bg-secondary); border-radius: var(--radius); padding: 14px; }
     .metric.wide { grid-column: span 2; }
     .metric-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; }
-    .metric-val { font-size: 28px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; }
+    .metric-val { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; }
     .metric-unit { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; }
     .interp-tag { display: inline-block; font-size: 12px; border-radius: 6px; padding: 4px 10px; margin-top: 8px; font-weight: 500; }
 
     .toggle-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 10px 12px; background: var(--bg-secondary); border-radius: var(--radius); }
-    .toggle-label { font-size: 14px; color: var(--text); flex: 1; }
+    .toggle-label { font-size: 14px; flex: 1; }
     .toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
     .toggle input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; inset: 0; background: var(--border-med); border-radius: 24px; cursor: pointer; transition: background 0.2s; }
     .slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
     .toggle input:checked + .slider { background: #34c759; }
     .toggle input:checked + .slider:before { transform: translateX(20px); }
-
-    .install-banner { margin: 1rem; padding: 14px; background: var(--bg-info); border-radius: var(--radius-lg); display: none; }
-    .install-banner p { font-size: 13px; color: var(--text-info); line-height: 1.5; }
-    .install-banner strong { font-weight: 600; }
 
     .disclaimer { margin: 1rem; padding: 12px 14px; background: var(--bg-warning); border-radius: var(--radius); }
     .disclaimer p { font-size: 12px; color: var(--text-warning); line-height: 1.5; }
@@ -142,12 +146,8 @@
     </div>
     <div>
       <h1>Fick Cardiac Output</h1>
-      <p>MDCalc formula · Hüfner 1.34 mL/g</p>
+      <p>MDCalc formula · On-device OCR · No internet needed</p>
     </div>
-  </div>
-
-  <div id="installBanner" class="install-banner">
-    <p>📲 <strong>Add to home screen:</strong> Tap the share button in your browser, then "Add to Home Screen" to use this like a native app.</p>
   </div>
 
   <div class="steps">
@@ -158,7 +158,7 @@
 
   <!-- Step 1: Camera -->
   <div id="panelCapture" class="section">
-    <div class="section-label">Step 1 — Epic EMR photo</div>
+    <div class="section-label">Step 1 — Photo of Epic EMR</div>
     <div class="camera-zone" id="cameraZone">
       <input type="file" id="fileInput" accept="image/*" capture="environment">
       <svg class="cam-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -171,10 +171,11 @@
     <div id="imgPreviewWrap" style="display:none; margin-top:12px;">
       <img id="imgPreview" class="preview-img">
       <div class="btn-row">
-        <button class="btn primary sm" id="btnExtract">Extract with AI</button>
+        <button class="btn primary sm" id="btnExtract">Read with OCR</button>
         <button class="btn sm" id="btnRetake">Retake</button>
       </div>
     </div>
+    <div id="progressWrap" class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
     <div id="captureStatus" class="status" style="display:none;"></div>
     <div style="margin-top:12px;">
       <button class="btn sm" onclick="showManual()">Skip — enter manually</button>
@@ -184,11 +185,14 @@
   <!-- Step 2: Values -->
   <div id="panelValues" class="section" style="display:none;">
     <div class="section-label">Step 2 — Patient values</div>
-    <div id="aiBadge" class="ai-badge" style="display:none;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      AI-extracted — verify before calculating
+
+    <div id="ocrBadge" class="ocr-badge" style="display:none;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h6M7 16h8"/></svg>
+      OCR-extracted — verify before calculating
     </div>
     <div id="extractedNote" class="note success" style="display:none;"></div>
+    <div id="ocrToggle" class="ocr-toggle" onclick="toggleRaw()">▶ Show raw OCR text</div>
+    <div id="ocrRaw" class="ocr-raw"></div>
 
     <div class="formula-box" id="formulaBox">CO = VO₂ / (13.4 × Hgb × (SaO₂ − SvO₂))
 VO₂ = 125 mL/min/m² × BSA  (age &lt;70)</div>
@@ -249,9 +253,7 @@ VO₂ = 125 mL/min/m² × BSA  (age &lt;70)</div>
         <div class="metric-unit">mL/dL</div>
       </div>
     </div>
-
     <div class="formula-box" id="detailCalc"></div>
-
     <div class="btn-row">
       <button class="btn sm" onclick="resetAll()">New calculation</button>
     </div>
@@ -260,22 +262,16 @@ VO₂ = 125 mL/min/m² × BSA  (age &lt;70)</div>
   <div class="disclaimer">
     <p>⚠️ For clinical decision support only. Always verify results independently. Not a substitute for clinical judgment.</p>
   </div>
-
 </div>
 
 <script>
-  // Register service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  // Show install banner on mobile browsers that aren't standalone
-  if (!window.matchMedia('(display-mode: standalone)').matches && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    document.getElementById('installBanner').style.display = 'block';
-  }
-
   const HUFNER = 1.34;
   let imgDataUrl = null;
+  let rawOcrVisible = false;
   const $ = id => document.getElementById(id);
 
   function setStep(n) {
@@ -286,8 +282,14 @@ VO₂ = 125 mL/min/m² × BSA  (age &lt;70)</div>
 
   function updateFormula() {
     const aged = $('over70').checked;
-    const k = aged ? 110 : 125;
-    $('formulaBox').textContent = `CO = VO₂ / (${HUFNER * 10} × Hgb × (SaO₂ − SvO₂))\nVO₂ = ${k} mL/min/m² × BSA  (${aged ? 'age ≥70' : 'age <70'})`;
+    $('formulaBox').textContent =
+      `CO = VO₂ / (${HUFNER * 10} × Hgb × (SaO₂ − SvO₂))\nVO₂ = ${aged ? 110 : 125} mL/min/m² × BSA  (${aged ? 'age ≥70' : 'age <70'})`;
+  }
+
+  function toggleRaw() {
+    rawOcrVisible = !rawOcrVisible;
+    $('ocrRaw').style.display = rawOcrVisible ? 'block' : 'none';
+    $('ocrToggle').textContent = (rawOcrVisible ? '▼' : '▶') + ' Show raw OCR text';
   }
 
   $('fileInput').addEventListener('change', function() {
@@ -299,6 +301,7 @@ VO₂ = 125 mL/min/m² × BSA  (age &lt;70)</div>
       $('imgPreview').src = imgDataUrl;
       $('imgPreviewWrap').style.display = 'block';
       $('cameraZone').style.display = 'none';
+      $('captureStatus').style.display = 'none';
     };
     reader.readAsDataURL(file);
   });
@@ -309,73 +312,156 @@ VO₂ = 125 mL/min/m² × BSA  (age &lt;70)</div>
     $('cameraZone').style.display = 'block';
     $('fileInput').value = '';
     $('captureStatus').style.display = 'none';
+    $('progressWrap').style.display = 'none';
+    $('progressBar').style.width = '0%';
   };
+
+  // ── OCR PARSING HELPERS ──────────────────────────────────────────────────
+
+  // Extract a numeric value following a label pattern in OCR text
+  function extractValue(text, patterns, min, max) {
+    for (const pattern of patterns) {
+      const re = new RegExp(pattern, 'i');
+      const match = text.match(re);
+      if (match) {
+        const val = parseFloat(match[1]);
+        if (!isNaN(val) && val >= min && val <= max) return val;
+      }
+    }
+    return null;
+  }
+
+  function parseOcrText(text) {
+    // Normalise common OCR mistakes
+    const t = text
+      .replace(/[Oo](?=\d)/g, '0')   // O → 0 before digits
+      .replace(/l(?=\d)/g, '1')       // l → 1 before digits
+      .replace(/\|/g, '1')
+      .replace(/,/g, '.')             // European decimal comma
+      .replace(/\s+/g, ' ');
+
+    const result = {};
+
+    // SaO2 / SpO2 / Arterial sat  — expect 70–100
+    result.sao2 = extractValue(t, [
+      /S[pa]O2\s*[:\-=]?\s*(\d{2,3}(?:\.\d)?)\s*%?/,
+      /Art(?:erial)?\s*O2\s*Sat\s*[:\-=]?\s*(\d{2,3}(?:\.\d)?)/,
+      /Sp\s*O\s*2\s*[:\-=]?\s*(\d{2,3})/,
+      /O2\s*Sat\s*[:\-=]?\s*(\d{2,3})/
+    ], 70, 100);
+
+    // SvO2 / MvO2 / PA sat / Mixed venous — expect 20–80
+    result.svo2 = extractValue(t, [
+      /S[vV]O2\s*[:\-=]?\s*(\d{2,3}(?:\.\d)?)\s*%?/,
+      /Mix(?:ed)?\s*[Vv]en(?:ous)?\s*[:\-=]?\s*(\d{2,3})/,
+      /PA\s*O2\s*Sat\s*[:\-=]?\s*(\d{2,3})/,
+      /M[Vv]O2\s*[:\-=]?\s*(\d{2,3})/,
+      /Pul(?:m)?\s*Art\s*O2\s*[:\-=]?\s*(\d{2,3})/
+    ], 20, 80);
+
+    // Hemoglobin — expect 3–25
+    result.hgb = extractValue(t, [
+      /H(?:gb|b|emoglobin)\s*[:\-=]?\s*(\d{1,2}(?:\.\d)?)/,
+      /Hgb\s*[:\-=]?\s*(\d{1,2}(?:\.\d)?)/,
+      /Hemoglobin\s*[:\-=]?\s*(\d{1,2}(?:\.\d)?)/
+    ], 3, 25);
+
+    // BSA — expect 0.8–3.0
+    result.bsa = extractValue(t, [
+      /BSA\s*[:\-=]?\s*(\d(?:\.\d{1,2})?)/,
+      /Body\s*Surface\s*Area\s*[:\-=]?\s*(\d(?:\.\d{1,2})?)/,
+      /B\.S\.A\.\s*[:\-=]?\s*(\d(?:\.\d{1,2})?)/
+    ], 0.8, 3.0);
+
+    // Age — look for age ≥ 70
+    const ageMatch = t.match(/[Aa]ge\s*[:\-=]?\s*(\d{2,3})/);
+    if (ageMatch) {
+      const age = parseInt(ageMatch[1]);
+      result.age_over_70 = age >= 70;
+    }
+
+    return result;
+  }
+
+  // ── MAIN OCR FUNCTION ────────────────────────────────────────────────────
 
   $('btnExtract').onclick = async () => {
     if (!imgDataUrl) return;
+
     const status = $('captureStatus');
-    status.textContent = 'Analyzing Epic EMR image with AI...';
+    const progressWrap = $('progressWrap');
+    const progressBar = $('progressBar');
+
+    status.textContent = 'Starting OCR — runs entirely on your device...';
     status.className = 'status loading';
     status.style.display = 'block';
+    progressWrap.style.display = 'block';
+    progressBar.style.width = '0%';
     $('btnExtract').disabled = true;
 
     try {
-      const base64 = imgDataUrl.split(',')[1];
-      const mediaType = imgDataUrl.split(';')[0].split(':')[1];
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-              { type: "text", text: `Extract hemodynamic values from this Epic EMR image. Return ONLY valid JSON, no markdown.
-
-{
-  "sao2": <arterial O2 saturation 0-100, or null>,
-  "svo2": <mixed venous/PA O2 saturation 0-100, or null>,
-  "hgb": <hemoglobin g/dL, or null>,
-  "bsa": <body surface area m2, or null>,
-  "age_over_70": <true/false/null>,
-  "notes": "<brief summary max 80 chars>"
-}
-
-Look for: SaO2, SpO2, SvO2, MvO2, PA sat, Hgb, Hemoglobin, BSA, age. Convert % to numbers.` }
-            ]
-          }]
-        })
+      const worker = await Tesseract.createWorker('eng', 1, {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            const pct = Math.round((m.progress || 0) * 100);
+            progressBar.style.width = pct + '%';
+            status.textContent = `Recognizing text… ${pct}%`;
+          } else if (m.status === 'loading tesseract core') {
+            status.textContent = 'Loading OCR engine…';
+            progressBar.style.width = '10%';
+          } else if (m.status === 'initializing tesseract') {
+            status.textContent = 'Initializing…';
+            progressBar.style.width = '20%';
+          } else if (m.status === 'loading language traineddata') {
+            status.textContent = 'Loading language data…';
+            progressBar.style.width = '35%';
+          }
+        }
       });
-      const data = await res.json();
-      const text = data.content.map(b => b.text || '').join('');
-      const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
 
+      await worker.setParameters({
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,:%/ '
+      });
+
+      const { data: { text } } = await worker.recognize(imgDataUrl);
+      await worker.terminate();
+
+      progressBar.style.width = '100%';
+
+      // Show raw OCR for debugging
+      $('ocrRaw').textContent = text;
+      $('ocrToggle').style.display = 'block';
+
+      const parsed = parseOcrText(text);
       let found = [];
-      if (parsed.sao2 != null) { $('sao2').value = parsed.sao2; found.push('SaO₂'); }
-      if (parsed.svo2 != null) { $('svo2').value = parsed.svo2; found.push('SvO₂'); }
-      if (parsed.hgb != null)  { $('hgb').value  = parsed.hgb;  found.push('Hgb'); }
-      if (parsed.bsa != null)  { $('bsa').value  = parsed.bsa;  found.push('BSA'); }
+
+      if (parsed.sao2 != null) { $('sao2').value = parsed.sao2; found.push('SaO₂ ' + parsed.sao2 + '%'); }
+      if (parsed.svo2 != null) { $('svo2').value = parsed.svo2; found.push('SvO₂ ' + parsed.svo2 + '%'); }
+      if (parsed.hgb  != null) { $('hgb').value  = parsed.hgb;  found.push('Hgb '  + parsed.hgb  + ' g/dL'); }
+      if (parsed.bsa  != null) { $('bsa').value  = parsed.bsa;  found.push('BSA '  + parsed.bsa  + ' m²'); }
       if (parsed.age_over_70 === true) { $('over70').checked = true; updateFormula(); }
 
       showManual();
-      $('aiBadge').style.display = 'flex';
+      $('ocrBadge').style.display = 'flex';
+
       if (found.length > 0) {
-        $('extractedNote').textContent = 'Found: ' + found.join(', ') + '. Please verify.';
+        $('extractedNote').textContent = 'Detected: ' + found.join(', ') + '. Please verify.';
         $('extractedNote').style.display = 'block';
-        status.textContent = 'Extraction complete.';
+        status.textContent = 'OCR complete — verify values below.';
         status.className = 'status success';
       } else {
         $('extractedNote').style.display = 'none';
-        status.textContent = (parsed.notes || 'No values detected') + '. Enter manually.';
+        status.textContent = 'No values auto-detected. Check raw text or enter manually.';
         status.className = 'status';
       }
+
     } catch(e) {
-      status.textContent = 'Extraction failed — please enter values manually.';
+      status.textContent = 'OCR failed — please enter values manually.';
       status.className = 'status error';
+      progressWrap.style.display = 'none';
       showManual();
     }
+
     $('btnExtract').disabled = false;
   };
 
@@ -387,7 +473,7 @@ Look for: SaO2, SpO2, SvO2, MvO2, PA sat, Hgb, Hemoglobin, BSA, age. Convert % t
 
   function tag(label, type) {
     const colors = { normal: 'var(--text-success)', low: 'var(--text-warning)', critical: 'var(--text-danger)', high: 'var(--text-info)' };
-    const bgs    = { normal: 'var(--bg-success)', low: 'var(--bg-warning)', critical: 'var(--bg-danger)', high: 'var(--bg-info)' };
+    const bgs    = { normal: 'var(--bg-success)',   low: 'var(--bg-warning)',   critical: 'var(--bg-danger)',   high: 'var(--bg-info)' };
     return `<span class="interp-tag" style="background:${bgs[type]};color:${colors[type]}">${label}</span>`;
   }
 
@@ -403,8 +489,8 @@ Look for: SaO2, SpO2, SvO2, MvO2, PA sat, Hgb, Hemoglobin, BSA, age. Convert % t
       return;
     }
 
-    const vo2Constant = aged ? 110 : 125;
-    const vo2   = vo2Constant * bsa;
+    const vo2K  = aged ? 110 : 125;
+    const vo2   = vo2K * bsa;
     const avdo2 = HUFNER * 10 * hgb * (sao2 - svo2);
     const co    = vo2 / avdo2;
     const ci    = co / bsa;
@@ -423,7 +509,7 @@ Look for: SaO2, SpO2, SvO2, MvO2, PA sat, Hgb, Hemoglobin, BSA, age. Convert % t
     $('ciTag').innerHTML = tag(ciLabel, ciType);
 
     $('detailCalc').textContent =
-      `VO₂ = ${vo2Constant} × ${bsa} BSA = ${Math.round(vo2)} mL/min\n` +
+      `VO₂ = ${vo2K} × ${bsa} BSA = ${Math.round(vo2)} mL/min\n` +
       `A-vO₂ = 1.34 × 10 × ${hgb} × (${(sao2*100).toFixed(1)}% − ${(svo2*100).toFixed(1)}%)\n` +
       `      = ${avdo2.toFixed(2)} mL/dL\n` +
       `CO = ${Math.round(vo2)} / ${avdo2.toFixed(2)} = ${co.toFixed(2)} L/min\n` +
@@ -442,9 +528,14 @@ Look for: SaO2, SpO2, SvO2, MvO2, PA sat, Hgb, Hemoglobin, BSA, age. Convert % t
     $('imgPreviewWrap').style.display = 'none';
     $('cameraZone').style.display = 'block';
     $('fileInput').value = '';
-    $('aiBadge').style.display = 'none';
+    $('ocrBadge').style.display = 'none';
     $('extractedNote').style.display = 'none';
     $('captureStatus').style.display = 'none';
+    $('progressWrap').style.display = 'none';
+    $('progressBar').style.width = '0%';
+    $('ocrRaw').style.display = 'none';
+    $('ocrToggle').style.display = 'none';
+    rawOcrVisible = false;
     imgDataUrl = null;
     setStep(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });

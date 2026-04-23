@@ -1,7 +1,7 @@
 {
   "name": "Fick Cardiac Output",
   "short_name": "Fick CO",
-  "description": "Cardiac Output calculator using Fick's formula (MDCalc). Supports AI-powered Epic EMR data extraction.",
+  "description": "Cardiac Output calculator using Fick's formula with on-device OCR. No API key or internet required.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -21,6 +21,5 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["medical", "health"],
-  "screenshots": []
+  "categories": ["medical", "health"]
 }
